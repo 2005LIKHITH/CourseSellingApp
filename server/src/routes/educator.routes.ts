@@ -1,7 +1,7 @@
 import {Router} from 'express'
 import upload from '../middlewares/multer';
 import { verifyToken, verifyEducatorAccess ,verifyEducatorAccessCreation} from '../middlewares/auth';
-import { createCourse,createVideo } from '../controllers/user.controller';
+import { accessCourse, createCourse,createVideo, uploadVideo } from '../controllers/user.controller';
 
 const router = Router();
 
@@ -25,6 +25,6 @@ router.route('/:id/create-video').post(verifyToken,verifyEducatorAccess,upload.f
         maxCount:1
     }
 ]),createVideo);        
-router.route('/courses/:id').get(verifyToken,verifyEducatorAccess,);
-
+router.route('/courses/:id').get(verifyToken,verifyEducatorAccess,accessCourse);
+router.route('/courses/upload-video/:id').post(verifyToken,verifyEducatorAccess,uploadVideo);
 export default router
