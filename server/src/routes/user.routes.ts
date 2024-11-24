@@ -2,7 +2,7 @@ import {Router} from 'express'
 
 import upload from '../middlewares/multer';
 import { verifyToken } from '../middlewares/auth';
-import {registerUser,loginUser, logoutUser, getUserProfile} from '../controllers/user.controller';
+import {registerUser,loginUser, logoutUser, getUserProfile,googleLogin} from '../controllers/user.controller';
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.route('/logout').post(verifyToken,logoutUser);
 
 router.route('/profile').get(verifyToken,getUserProfile);
 
-
+router.route('/OAuth2/google').post(googleLogin);
 
 // router.route('/profile/update').put(verifyToken,upload.fields([
 //     {

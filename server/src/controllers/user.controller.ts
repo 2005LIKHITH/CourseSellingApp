@@ -10,6 +10,8 @@ import jwt from 'jsonwebtoken';
 import { Course, ICourse } from '../models/course.model';
 import { Video, IVideo } from '../models/video.model';
 import mongoose, { ObjectId, Types } from 'mongoose';
+import {oAuth2client} from '../utils/oAuth'
+import axios from 'axios';
 type RefreshAndAccessToken = (
   user: IUserDocument
 ) => Promise<{ refreshToken: string; accessToken: string }>;
@@ -285,8 +287,74 @@ const uploadVideo = asyncHandler(async (req: Request, res: Response) => {
   });
   res.status(STATUS_CODES.CREATED).json(new ApiResponse(STATUS_CODES.CREATED, video));
 })
-    
+
+const googleLogin = asyncHandler(async (req: Request, res: Response) => {
+  console.log("At Google Login");
+
+  const { code } = req.query;
+
+  if (!code) {
+    throw new ApiError(STATUS_CODES.BAD_REQUEST, 'Authorization code is required');
+  }
+
+  try {
+
+    const { tokens } = await oAuth2client.getToken(code as string);
+    oAuth2client.setCredentials(tokens);
+
+    // Step 2: Use the access token to fetch the user's profile information
+    const userInfoUrl = 'https://www.googleapis.com/oauth2/v3/userinfo';
+    const response = await axios.get(userInfoUrl, {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+    });
+
+    const googleUser = response.data;
+
+    // Step 3: Check if the user exists in the database
+    let user = await User.findOne({ email: googleUser.email });
+
+    if (!user) {
+      // Step 4: If user doesn't exist, create a new user
+      user = await User.create({
+        username: googleUser.name, //Or generate a unique usernam e
+        email: googleUser.email,
+        fullName: googleUser.name,
+        avatar: googleUser.picture,
+        refreshToken: tokens.refresh_token, 
+        role: 'user', // Default role
+      });
+    }
+
+    // Step 5: Generate JWT tokens (access and refresh)
+    const { refreshToken, accessToken } = await generateRefreshAndAccessToken(user);
+
+    // Step 6: Send the tokens and user info back
+    res.status(STATUS_CODES.OK)
+      .cookie('refreshToken', refreshToken, cookieOptions)
+      .cookie('accessToken', accessToken, cookieOptions)
+      .json(
+        new ApiResponse(
+          STATUS_CODES.OK,
+          {
+            accessToken,
+            role: user.role,
+            username: user.username,
+            fullName: user.fullName,
+            avatar: user.avatar,
+          },
+          'User logged in with Google successfully'
+        )
+      );
+  } catch (error) {
+    console.error(error);
+    throw new ApiError(STATUS_CODES.INTERNAL_SERVER_ERROR, 'Google login failed');
+  }
+});
+
+
   
 
 export { registerUser , loginUser, logoutUser, generateSession, getUserProfile
-   , createCourse, createVideo,accessCourse,uploadVideo};
+   , createCourse, createVideo,accessCourse,uploadVideo, googleLogin};
